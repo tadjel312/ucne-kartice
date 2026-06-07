@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Učne kartice</title>
+  <meta name="description" content="Aplikacija za učenje z učnimi karticami" />
+  <meta name="theme-color" content="#1D9E75" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Kartice" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #1D9E75;
+      --green-dark: #0F6E56;
+      --green-light: #E1F5EE;
+      --green-text: #0F6E56;
+      --red-light: #FCEBEB;
+      --red-text: #A32D2D;
+      --red-border: #F09595;
+      --coral-light: #FAECE7;
+      --coral-text: #993C1D;
+      --coral-border: #F0997B;
+      --blue-light: #E6F1FB;
+      --blue-text: #185FA5;
+      --blue-border: #85B7EB;
+      --amber-light: #FAEEDA;
+      --amber-text: #854F0B;
+      --amber-border: #EF9F27;
+      --gray-light: #F1EFE8;
+      --gray-text: #5F5E5A;
+      --gray-border: #B4B2A9;
+      --bg: #ffffff;
+      --bg2: #f5f5f3;
+      --bg3: #eeede9;
+      --text: #1a1a18;
+      --text2: #6b6b67;
+      --border: rgba(0,0,0,0.12);
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg2);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+
+    #app {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 0 0 2rem;
+      min-height: 100vh;
+      min-height: 100dvh;
+      background: var(--bg);
+    }
+
+    .topbar {
+      background: var(--green);
+      color: white;
+      padding: 1rem 1.25rem 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .topbar .logo { font-size: 22px; }
+    .topbar h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+    .topbar .sub { font-size: 12px; opacity: 0.8; }
+
+    .content { padding: 1.25rem; }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* UPLOAD */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 2rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      background: var(--bg2);
+      transition: background 0.2s;
+      margin-bottom: 1rem;
+    }
+    .upload-zone:active { background: var(--bg3); }
+    .upload-zone .icon { font-size: 36px; margin-bottom: 0.5rem; }
+    .upload-zone strong { display: block; font-size: 15px; color: var(--text); margin-bottom: 4px; }
+    .upload-zone p { font-size: 13px; color: var(--text2); }
+    #fileInput { display: none; }
+
+    .section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text2);
+      margin-bottom: 0.75rem;
+      font-weight: 600;
+    }
+
+    .subject-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+    .pill {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1.5px solid transparent;
+      transition: transform 0.1s;
+      user-select: none;
+    }
+    .pill:active { transform: scale(0.96); }
+    .pill.geo { background: var(--green-light); color: var(--green-text); border-color: #5DCAA5; }
+    .pill.hist { background: var(--coral-light); color: var(--coral-text); border-color: var(--coral-border); }
+    .pill.eng { background: var(--blue-light); color: var(--blue-text); border-color: var(--blue-border); }
+    .pill.math { background: var(--amber-light); color: var(--amber-text); border-color: var(--amber-border); }
+    .pill.custom { background: var(--bg2); color: var(--text2); border-color: var(--gray-border); }
+    .pill.selected { outline: 2.5px solid currentColor; outline-offset: 2px; }
+
+    .input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .input-row input {
+      flex: 1;
+      padding: 11px 14px;
+      font-size: 15px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      -webkit-appearance: none;
+    }
+    .input-row input:focus { outline: none; border-color: var(--green); }
+
+    .btn-add {
+      width: 100%;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      cursor: pointer;
+      margin-bottom: 1rem;
+      transition: background 0.15s;
+    }
+    .btn-add:active { background: var(--bg2); }
+
+    .card-list { margin-bottom: 1rem; }
+    .card-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--bg2);
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+    .card-item .subj-badge {
+      flex-shrink: 0;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .card-item .q { flex: 1; font-size: 13px; font-weight: 500; }
+    .card-item .sep { color: var(--text2); font-size: 13px; }
+    .card-item .a { flex: 1; font-size: 13px; color: var(--text2); text-align: right; }
+    .card-item .del {
+      background: none; border: none; cursor: pointer;
+      color: var(--text2); font-size: 18px; padding: 0 0 0 4px;
+      flex-shrink: 0;
+    }
+
+    .counter { font-size: 13px; color: var(--text2); text-align: center; margin-bottom: 0.75rem; }
+
+    .divider {
+      text-align: center; color: var(--text2); font-size: 13px;
+      margin: 1rem 0; position: relative;
+    }
+    .divider::before, .divider::after {
+      content: ''; position: absolute; top: 50%;
+      width: 40%; height: 1px; background: var(--border);
+    }
+    .divider::before { left: 0; } .divider::after { right: 0; }
+
+    .btn-start {
+      width: 100%; padding: 16px;
+      border-radius: var(--radius);
+      border: none;
+      background: var(--green);
+      color: white;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 0.5rem;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-start:active { background: var(--green-dark); }
+    .btn-start:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* CARD SCREEN */
+    .progress-wrap { margin-bottom: 1.25rem; }
+    .progress-info { display: flex; justify-content: space-between; font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+    .progress-bar { background: var(--bg2); border-radius: 999px; height: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 999px; background: var(--green); transition: width 0.4s ease; }
+
+    .card-scene { perspective: 1000px; height: 240px; margin-bottom: 1.25rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .card-inner {
+      width: 100%; height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.5s cubic-bezier(.4,0,.2,1);
+    }
+    .card-inner.flipped { transform: rotateY(180deg); }
+    .card-face {
+      position: absolute; inset: 0;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: var(--radius);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 1.5rem;
+      border: 1.5px solid var(--border);
+    }
+    .card-front { background: var(--bg); }
+    .card-back { background: var(--bg2); transform: rotateY(180deg); }
+    .card-face .face-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text2); margin-bottom: 0.875rem; font-weight: 600; }
+    .card-face .face-text { font-size: 24px; font-weight: 600; text-align: center; color: var(--text); line-height: 1.3; }
+    .card-face .face-hint { font-size: 13px; color: var(--text2); margin-top: 1rem; }
+    .card-badge {
+      padding: 4px 12px; border-radius: 999px;
+      font-size: 12px; font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .btn-flip {
+      width: 100%; padding: 14px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text2);
+      font-size: 15px;
+      cursor: pointer;
+      margin-bottom: 0.75rem;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-flip:active { background: var(--bg2); }
+
+    .answer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 0.75rem; }
+    .btn-no, .btn-yes {
+      padding: 16px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid;
+      transition: transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-no:active, .btn-yes:active { transform: scale(0.97); }
+    .btn-no { background: var(--red-light); color: var(--red-text); border-color: var(--red-border); }
+    .btn-yes { background: var(--green-light); color: var(--green-text); border-color: #5DCAA5; }
+
+    /* RESULTS */
+    .result-hero { text-align: center; padding: 1.5rem 0 1rem; }
+    .result-emoji { font-size: 56px; margin-bottom: 0.5rem; }
+    .result-title { font-size: 26px; font-weight: 700; margin-bottom: 0.25rem; }
+    .result-sub { font-size: 15px; color: var(--text2); }
+
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 1.25rem 0; }
+    .stat-card { background: var(--bg2); border-radius: var(--radius-sm); padding: 1rem; text-align: center; }
+    .stat-num { font-size: 36px; font-weight: 700; }
+    .stat-num.g { color: var(--green); }
+    .stat-num.r { color: var(--red-text); }
+    .stat-lbl { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+    .missed-section { margin-bottom: 1.25rem; }
+    .missed-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 12px;
+      background: var(--red-light);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .missed-item .mq { font-weight: 500; color: var(--red-text); }
+    .missed-item .ma { color: var(--red-text); opacity: 0.7; }
+
+    .btn-action {
+      width: 100%; padding: 14px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-action:active { background: var(--bg2); }
+    .btn-action.primary { background: var(--green); color: white; border-color: var(--green); }
+    .btn-action.primary:active { background: var(--green-dark); }
+
+    .excel-tip {
+      background: var(--green-light);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--green-text);
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
+    }
+
+    .sep-line { height: 1px; background: var(--border); margin: 1.25rem 0; }
+
+    /* install banner */
+    #installBanner {
+      display: none;
+      background: var(--green);
+      color: white;
+      padding: 12px 1.25rem;
+      font-size: 14px;
+      align-items: center;
+      gap: 10px;
+    }
+    #installBanner button {
+      margin-left: auto;
+      background: white;
+      color: var(--green-text);
+      border: none;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    #installBanner .close-btn {
+      background: none; color: white; padding: 0; border-radius: 0;
+      font-size: 20px; font-weight: 300; margin-left: 0;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="logo">🎓</div>
+    <div>
+      <h1>Učne kartice</h1>
+      <div class="sub">Aplikacija za učenje</div>
+    </div>
+  </div>
+
+  <div id="installBanner">
+    <span>Namesti aplikacijo na telefon</span>
+    <button id="installBtn">Namesti</button>
+    <button class="close-btn" id="closeBanner">✕</button>
+  </div>
+
+  <!-- SETUP SCREEN -->
+  <div id="screen-setup" class="screen active content">
+    <div class="excel-tip">
+      📊 <strong>Excel format:</strong> stolpec A = vprašanje, stolpec B = odgovor. Prva vrstica je naslov (preskočena).
+    </div>
+
+    <div class="upload-zone" id="uploadZone">
+      <div class="icon">📂</div>
+      <strong>Uvozi Excel datoteko</strong>
+      <p>Klikni tukaj • podprto: .xlsx, .xls, .csv</p>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+
+    <div class="divider">ali vnesi ročno</div>
+
+    <div class="section-label">Predmet</div>
+    <div class="subject-pills">
+      <span class="pill geo selected" data-cls="geo" data-name="Geografija" onclick="setPill(this)">🗺️ Geografija</span>
+      <span class="pill hist" data-cls="hist" data-name="Zgodovina" onclick="setPill(this)">📚 Zgodovina</span>
+      <span class="pill eng" data-cls="eng" data-name="Angleščina" onclick="setPill(this)">🇬🇧 Angleščina</span>
+      <span class="pill math" data-cls="math" data-name="Matematika" onclick="setPill(this)">➕ Matematika</span>
+      <span class="pill custom" data-cls="custom" data-name="Ostalo" onclick="setPill(this)">✏️ Ostalo</span>
+    </div>
+
+    <div class="input-row">
+      <input id="qInput" type="text" placeholder="Vprašanje..." />
+      <input id="aInput" type="text" placeholder="Odgovor..." />
+    </div>
+    <button class="btn-add" onclick="addCard()">+ Dodaj kartico</button>
+
+    <div class="card-list" id="cardList"></div>
+    <div class="counter" id="counter">0 kartic pripravljenih</div>
+
+    <button class="btn-start" id="startBtn" onclick="startLearning()" disabled>▶ Začni učenje</button>
+  </div>
+
+  <!-- CARD SCREEN -->
+  <div id="screen-card" class="screen content">
+    <div class="progress-wrap">
+      <div class="progress-info">
+        <span id="progressText">Kartica 1 od 1</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="card-scene" id="cardScene" onclick="flipCard()">
+      <div class="card-inner" id="cardInner">
+        <div class="card-face card-front">
+          <div class="card-badge" id="cardBadge"></div>
+          <div class="face-label">Vprašanje</div>
+          <div class="face-text" id="cardQuestion"></div>
+          <div class="face-hint">👆 Tapni za odgovor</div>
+        </div>
+        <div class="card-face card-back">
+          <div class="face-label">Odgovor</div>
+          <div class="face-text" id="cardAnswer"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-flip" id="flipBtn" onclick="flipCard()">Pokaži odgovor 🔄</button>
+
+    <div class="answer-row" id="answerRow" style="display:none;">
+      <button class="btn-no" onclick="answer(false)">✗ Nisem vedel</button>
+      <button class="btn-yes" onclick="answer(true)">✓ Vedel sem!</button>
+    </div>
+  </div>
+
+  <!-- RESULTS SCREEN -->
+  <div id="screen-results" class="screen content">
+    <div class="result-hero">
+      <div class="result-emoji" id="resEmoji">🎉</div>
+      <div class="result-title" id="resTitle">Odlično!</div>
+      <div class="result-sub" id="resSub"></div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-num g" id="resCorrect">0</div>
+        <div class="stat-lbl">Pravilnih ✓</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num r" id="resWrong">0</div>
+        <div class="stat-lbl">Napačnih ✗</div>
+      </div>
+    </div>
+
+    <div class="missed-section" id="missedSection" style="display:none;">
+      <div class="section-label">Ponovi te kartice</div>
+      <div id="missedList"></div>
+    </div>
+
+    <button class="btn-action primary" id="retryBtn" onclick="retryWrong()">🔁 Ponovi napačne kartice</button>
+    <button class="btn-action" onclick="restartAll()">▶ Znova vse kartice</button>
+    <button class="btn-action" onclick="goSetup()">← Nazaj na začetek</button>
+  </div>
+</div>
+
+<script>
+let cards = [], queue = [], current = 0, correct = 0, wrong = [];
+let isFlipped = false;
+let currentSubject = { name: 'Geografija', cls: 'geo' };
+let deferredPrompt = null;
+
+const subjectColors = {
+  geo:    { bg: '#E1F5EE', color: '#0F6E56', border: '#5DCAA5' },
+  hist:   { bg: '#FAECE7', color: '#993C1D', border: '#F0997B' },
+  eng:    { bg: '#E6F1FB', color: '#185FA5', border: '#85B7EB' },
+  math:   { bg: '#FAEEDA', color: '#854F0B', border: '#EF9F27' },
+  custom: { bg: '#F1EFE8', color: '#5F5E5A', border: '#B4B2A9' }
+};
+
+// PWA install prompt
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').style.display = 'flex';
+});
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBanner').style.display = 'none';
+});
+document.getElementById('closeBanner').addEventListener('click', () => {
+  document.getElementById('installBanner').style.display = 'none';
+});
+
+// Screens
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// Subject pills
+function setPill(el) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  currentSubject = { name: el.dataset.name, cls: el.dataset.cls };
+}
+
+// Add card manually
+function addCard() {
+  const q = document.getElementById('qInput').value.trim();
+  const a = document.getElementById('aInput').value.trim();
+  if (!q || !a) return;
+  cards.push({ q, a, subject: { ...currentSubject } });
+  document.getElementById('qInput').value = '';
+  document.getElementById('aInput').value = '';
+  document.getElementById('qInput').focus();
+  renderList();
+}
+document.getElementById('qInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('aInput').focus(); });
+document.getElementById('aInput').addEventListener('keydown', e => { if (e.key === 'Enter') addCard(); });
+
+// Render card list
+function renderList() {
+  const list = document.getElementById('cardList');
+  list.innerHTML = '';
+  cards.forEach((c, i) => {
+    const sc = subjectColors[c.subject.cls];
+    const div = document.createElement('div');
+    div.className = 'card-item';
+    div.innerHTML = `
+      <span class="subj-badge" style="background:${sc.bg};color:${sc.color};border:1px solid ${sc.border}">${c.subject.name}</span>
+      <span class="q">${c.q}</span>
+      <span class="sep">→</span>
+      <span class="a">${c.a}</span>
+      <button class="del" onclick="removeCard(${i})" aria-label="Izbriši">✕</button>`;
+    list.appendChild(div);
+  });
+  document.getElementById('counter').textContent = `${cards.length} kartic pripravljenih`;
+  document.getElementById('startBtn').disabled = cards.length === 0;
+}
+
+function removeCard(i) { cards.splice(i, 1); renderList(); }
+
+// Excel import
+document.getElementById('uploadZone').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      let count = 0;
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        if (row[0] && row[1]) {
+          cards.push({ q: String(row[0]).trim(), a: String(row[1]).trim(), subject: { ...currentSubject } });
+          count++;
+        }
+      }
+      renderList();
+      document.getElementById('uploadZone').innerHTML = `<div class="icon">✅</div><strong style="color:#0F6E56">${count} kartic uvoženih!</strong><p>Klikni za dodajanje še več</p>`;
+    } catch(err) {
+      alert('Napaka pri branju datoteke. Preveri format.');
+    }
+  };
+  reader.readAsBinaryString(file);
+  this.value = '';
+});
+
+// Shuffle
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Start
+function startLearning() {
+  queue = shuffle(cards);
+  current = 0; correct = 0; wrong = [];
+  showCard();
+  show('screen-card');
+}
+
+function showCard() {
+  isFlipped = false;
+  document.getElementById('cardInner').classList.remove('flipped');
+  document.getElementById('answerRow').style.display = 'none';
+  document.getElementById('flipBtn').style.display = 'block';
+
+  const c = queue[current];
+  document.getElementById('cardQuestion').textContent = c.q;
+  document.getElementById('cardAnswer').textContent = c.a;
+
+  const sc = subjectColors[c.subject.cls];
+  const badge = document.getElementById('cardBadge');
+  badge.textContent = c.subject.name;
+  badge.style.cssText = `background:${sc.bg};color:${sc.color};border:1.5px solid ${sc.border};padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600`;
+
+  const pct = Math.round((current / queue.length) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = `Kartica ${current + 1} od ${queue.length}`;
+  document.getElementById('progressPct').textContent = pct + '%';
+}
+
+function flipCard() {
+  if (isFlipped) return;
+  isFlipped = true;
+  document.getElementById('cardInner').classList.add('flipped');
+  document.getElementById('flipBtn').style.display = 'none';
+  document.getElementById('answerRow').style.display = 'grid';
+}
+
+function answer(knew) {
+  if (knew) correct++; else wrong.push(queue[current]);
+  current++;
+  if (current < queue.length) showCard();
+  else showResults();
+}
+
+function showResults() {
+  document.getElementById('resCorrect').textContent = correct;
+  document.getElementById('resWrong').textContent = wrong.length;
+  const pct = Math.round((correct / queue.length) * 100);
+
+  let emoji, title, sub;
+  if (pct === 100) { emoji = '🏆'; title = 'Odlično!'; sub = 'Vse kartice si znal/a — bravo!'; }
+  else if (pct >= 75) { emoji = '🌟'; title = 'Super!'; sub = `${pct}% pravilnih — zelo dobro!`; }
+  else if (pct >= 50) { emoji = '👍'; title = 'Dobro!'; sub = `${pct}% pravilnih — nadaljuj z vadbo!`; }
+  else { emoji = '💪'; title = 'Vaditi je treba!'; sub = `${pct}% pravilnih — ponovi napačne kartice.`; }
+
+  document.getElementById('resEmoji').textContent = emoji;
+  document.getElementById('resTitle').textContent = title;
+  document.getElementById('resSub').textContent = sub;
+
+  const missedList = document.getElementById('missedList');
+  missedList.innerHTML = '';
+  if (wrong.length > 0) {
+    document.getElementById('missedSection').style.display = 'block';
+    document.getElementById('retryBtn').style.display = 'block';
+    wrong.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'missed-item';
+      div.innerHTML = `<span class="mq">${c.q}</span><span class="ma">→ ${c.a}</span>`;
+      missedList.appendChild(div);
+    });
+  } else {
+    document.getElementById('missedSection').style.display = 'none';
+    document.getElementById('retryBtn').style.display = 'none';
+  }
+  show('screen-results');
+}
+
+function retryWrong() {
+  queue = shuffle(wrong);
+  current = 0; correct = 0; wrong = [];
+  showCard(); show('screen-card');
+}
+function restartAll() {
+  queue = shuffle(cards);
+  current = 0; correct = 0; wrong = [];
+  showCard(); show('screen-card');
+}
+function goSetup() { show('screen-setup'); }
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});}</script>
+</body>
+</html>
